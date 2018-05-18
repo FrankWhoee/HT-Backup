@@ -57,7 +57,8 @@ public class App extends ListenerAdapter
     public static void main( String[] args ) throws Exception
     {
     	
-        jda = new JDABuilder(AccountType.BOT).setToken(Ref.TOKEN).buildBlocking();
+    	//jda = new JDABuilder(AccountType.BOT).setToken(Ref.TOKEN).buildBlocking();
+        jda = new JDABuilder(AccountType.BOT).setToken(Ref.DEVTOKEN).buildBlocking();
         
         jda.getPresence().setStatus(OnlineStatus.ONLINE);
         //
@@ -68,8 +69,9 @@ public class App extends ListenerAdapter
         eb.setTitle("Update: " + Ref.version);
         eb.setDescription("Here's what's new:");
         eb.setColor(Ref.HTRed);
-        eb.addField("Quick Maintenence and Bugfix","Some logging errors were corrected.",false);
-        eb.addField("Vegas Update","Redudancies for Vegas were included. Vegas bets will now be transferrable from HT Backup to admins, so we'll still be able to keep Vegas up and running even if one member of the HT Team is not available.",false);
+        eb.addField(">players","You can now see who you can battle! This command lists out all the people that submitted a bot, so you can choose who to fight. However, it gives the actual username of the player and if the player changed their nickname, the returned message will not be the nickname.",false);
+        eb.addField(">define [WORD]","The API now works! In a conversation and someone says concatenation? No sweat, just do >define concatenation and get the definition FAST!!! Disclaimer: The definitions aren't specialised to CS, so it might be disappointing when the definition for concatenation isn't in a CS context.",false);
+        
         
 //        eb.addField(">time","Use this command to get the UTC time. Our schedule will be based on this time.",false);
 //        eb.addField(">schedule","Returns the schedule.",false);
@@ -77,10 +79,10 @@ public class App extends ListenerAdapter
 //        eb.addField(">id [@PERSON]","Returns the @PERSON that matches this ID. You are able to tag multiple people for this command!",false);
 //        eb.addField(">define [WORD]","This function was recently added to HT Backup, but the API being used is not functional anymore. Looking for an alternative, but it'll have to wait ;)",false);
 //        eb.addField("Embedded Messages","As you can see, we're now making use of embedded messages. Hopefully this will make our messages EXTRA fancy and make it easy to look at.",false);
-        //jda.getTextChannelById(Ref.devChId).sendMessage(eb.build()).queue();
-        jda.getTextChannelById(Ref.s2ChId).sendMessage(eb.build()).queue();
+        jda.getTextChannelById(Ref.devChId).sendMessage(eb.build()).queue();
+        //jda.getTextChannelById(Ref.s2ChId).sendMessage(eb.build()).queue();
     }
-       
+
     @Override
     public void onMessageReceived(MessageReceivedEvent evt) {
     	//Objects
@@ -135,7 +137,7 @@ public class App extends ListenerAdapter
     				+ "\n>id [@PERSON]: Return @PERSON's id. Can tag many people to get their id's. NOTE: You can tag yourself to get your id."
     				+ "\n>admin: Shows admin commands. Only admins can use this command.```").queue();
     	}else if(objMsg.getContentRaw().startsWith(Ref.prefix + "admin") && Ref.adminIds.contains(objUser.getIdLong())) {
-    		if(!(objMsgCh.getIdLong() == Ref.privateChId || objMsgCh.getName().equals("halite"))) {
+    		if(verify(true,true,objMsg,objMsgCh,objUser)) {
     			objMsg.delete().queue();
     			objMsgCh.sendMessage(objUser.getAsMention() + " `Please use this in a private channel. Message expires in 5 seconds.`").queue(message ->{
     				double sentTime = System.currentTimeMillis();
@@ -176,7 +178,7 @@ public class App extends ListenerAdapter
     		
     		objMsgCh.sendMessage(id + " is " + name).queue();
     	}else if(objMsg.getContentRaw().startsWith(Ref.prefix + "battleChannel ") && Ref.adminIds.contains(objUser.getIdLong())) {
-    		if(!(objMsgCh.getIdLong() == Ref.privateChId || objMsgCh.getName().equals("halite"))) {
+    		if(verify(true,true,objMsg,objMsgCh,objUser)) {
     			objMsg.delete().queue();
     			objMsgCh.sendMessage(objUser.getAsMention() + " `Please use this in a private channel. Message expires in 5 seconds.`").queue(message ->{
     				double sentTime = System.currentTimeMillis();
@@ -194,9 +196,9 @@ public class App extends ListenerAdapter
     		
     		
     	}else if(objMsg.getContentRaw().startsWith(Ref.prefix + "submitChannel ") && Ref.adminIds.contains(objUser.getIdLong())) {
-    		if(!(objMsgCh.getIdLong() == Ref.privateChId || objMsgCh.getName().equals("halite"))) {
+    		if(verify(true,true,objMsg,objMsgCh,objUser)) {
+    			objMsg.delete().queue();
     			objMsgCh.sendMessage(objUser.getAsMention() + " `Please use this in a private channel. Message expires in 5 seconds.`").queue(message ->{
-    				objMsg.delete().queue();
     				double sentTime = System.currentTimeMillis();
 		    		double currTime = 0;
 		    		while(currTime - sentTime < 5000) {currTime = System.currentTimeMillis();}
@@ -211,7 +213,7 @@ public class App extends ListenerAdapter
 	    		objMsgCh.sendMessage("s2ChIdset set to " + id).queue();
     		}
     	}else if(objMsg.getContentRaw().startsWith(Ref.prefix + "privateChannel ") && Ref.adminIds.contains(objUser.getIdLong())) {
-    		if(!(objMsgCh.getIdLong() == Ref.privateChId || objMsgCh.getName().equals("halite"))) {
+    		if(verify(true,true,objMsg,objMsgCh,objUser)) {
     			objMsg.delete().queue();
     			objMsgCh.sendMessage(objUser.getAsMention() + " `Please use this in a private channel. Message expires in 5 seconds.`").queue(message ->{
     				double sentTime = System.currentTimeMillis();
@@ -223,9 +225,9 @@ public class App extends ListenerAdapter
 	    		String input = objMsg.getContentRaw();
 	    		String id = input.substring(15).trim();
 	    		Long idLong = Long.parseLong(id);
-	    		Ref.privateChId = idLong;
+	    		Ref.privateChannels.add(idLong);
 	    		
-	    		objMsgCh.sendMessage("privateChId set to " + id).queue();
+	    		objMsgCh.sendMessage("Added " + id + " to privateChannels.").queue();
     		}
     	}
     	else if(objMsg.getContentRaw().startsWith(Ref.prefix + "id")) {
@@ -242,7 +244,7 @@ public class App extends ListenerAdapter
     			objMsgCh.sendFile(file).queue();
     		}
     	}else if(objMsg.getContentRaw().equalsIgnoreCase(Ref.prefix + "setVegasFile")) {
-    		if(!(objMsgCh.getIdLong() == Ref.privateChId || objMsgCh.getName().equals("halite"))) {
+    		if(verify(true,true,objMsg,objMsgCh,objUser)) {
     			objMsg.delete().queue();
     			objMsgCh.sendMessage(objUser.getAsMention() + " `Please use this in a private channel. Message expires in 5 seconds.`").queue(message ->{
     				double sentTime = System.currentTimeMillis();
@@ -256,8 +258,13 @@ public class App extends ListenerAdapter
 	    			objMsgCh.sendMessage(objUser.getAsMention() + " `WARNING: SETTING THIS FILE WILL OVERWRITE PREVIOUS FILE. TO CONFIRM OVERWRITE, TYPE >confirmSetVegasFile`").queue();
 	    		}
     		}
-    	}else if(objMsg.getContentRaw().equalsIgnoreCase(Ref.prefix + "confirmSetVegasFile")) {
-    		if(!(objMsgCh.getIdLong() == Ref.privateChId || objMsgCh.getName().equals("halite"))) {
+    	}else if(objMsg.getContentRaw().equalsIgnoreCase(Ref.prefix + "players")) {
+    		objMsgCh.sendMessage("Getting players...").queue(message ->{
+    			message.editMessage(cloud.showAll(objMsg)).queue();
+    		});
+    	}
+    	else if(objMsg.getContentRaw().equalsIgnoreCase(Ref.prefix + "confirmSetVegasFile")) {
+    		if(verify(true,true,objMsg,objMsgCh,objUser)) {
     			objMsg.delete().queue();
     			objMsgCh.sendMessage(objUser.getAsMention() + " `Please use this in a private channel. Message expires in 5 seconds.`").queue(message ->{
     				double sentTime = System.currentTimeMillis();
@@ -475,6 +482,19 @@ public class App extends ListenerAdapter
 	    		message.delete().queue();
     		});
     		
+    	}else if(objMsg.getContentRaw().startsWith(Ref.prefix + "urban")) {
+    		if(verify(true,true,objMsg,objMsgCh,objUser)) {
+    			objMsg.delete().queue();
+    			objMsgCh.sendMessage(objUser.getAsMention() + " `Please use this in a private channel. Message expires in 5 seconds.`").queue(message ->{
+    				double sentTime = System.currentTimeMillis();
+		    		double currTime = 0;
+		    		while(currTime - sentTime < 5000) {currTime = System.currentTimeMillis();}
+		    		message.delete().queue();
+    			});
+    		}else {
+    			objMsgCh.sendMessage(urbanDict(objMsg.getContentRaw())).queue();
+    		}
+    		
     	}
     }
     
@@ -580,5 +600,42 @@ public class App extends ListenerAdapter
     	flag = flag.trim();
 		System.out.println(flag + " flagged for command \"" + command + "\"");
 		return flag;
+    }
+    
+    public String urbanDict(String input) {
+		String  word = "";
+		int defNum = 0;
+		if(input.indexOf("#") != -1) {
+			 word = input.substring(7,input.indexOf("#"));
+			 defNum = Integer.parseInt(input.substring(input.indexOf("#") + 1));
+		}else {
+			try {
+				word = input.substring(7);
+			}catch(Exception e) {
+				return ("Do you think this command is magical?! I can't read your mind! Add an input.");
+			}
+		}
+		word = word.replace(" ", "+");
+		try {
+			return (Dictionary.getUrban(word,defNum));
+		} catch (Exception e) {
+			e.printStackTrace(System.out);
+			return ("" + e);
+		}
+    }
+    
+    public boolean verify(boolean priv, boolean admin, Message objMsg, MessageChannel objMsgCh, User objUser) {
+    	if(priv) {
+    		if(!(Ref.privateChannels.contains(objMsgCh.getIdLong()) || Ref.privateGuilds.contains(objMsg.getGuild().getIdLong()) || objMsgCh.getName().equals("halite"))) {
+    			return false;
+    		}
+    	}
+    	if(admin) {
+    		if(!Ref.adminIds.contains(objUser.getIdLong())) {
+    			return false;
+    		}
+    	}
+    	return true;
+    	
     }
 }
