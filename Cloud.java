@@ -44,7 +44,48 @@ public class Cloud {
 		if(objMsg.getAttachments().size() < 2) {
 			String fileLink = objMsg.getAttachments().get(0).getUrl();
 			String output = App.cloudExec("wget -q -P "+Ref.storageName+"/" + storeNum + " " + fileLink);
-			return "File stored succesfully in slot "+ storeNum + ".";
+			
+			if(App.cloudExec("ls " + storeNum).equals("")) {
+				return "File was not stored succesfully.";
+			}else {
+				return "File stored succesfully in slot "+ storeNum + ".";
+			}				
+		}else {
+			return "No file attached!";
+		}
+		
+	}
+	
+	public String store(Message objMsg,String slot) {
+		String input = objMsg.getContentRaw();
+		String storeNum = slot;
+		
+		if(!App.cloudExec("ls").contains(Ref.storageName)) {
+			App.cloudExec("mkdir " + Ref.storageName);
+		}
+		
+		if(!App.cloudExec("ls " + Ref.storageName).contains(storeNum)) {
+			App.cloudExec("mkdir "+Ref.storageName+"/" + storeNum);
+		}
+		
+		if(!App.cloudExec("ls "+Ref.storageName+"/" + storeNum).equals("")) {
+			App.cloudExec("rm -rf "+Ref.storageName+"/"+storeNum+"/*");
+			System.out.println("rm -rf "+Ref.storageName+"/"+storeNum+"/*");
+		}
+		
+		if(objMsg.getAttachments().size() < 2) {
+			String fileLink = objMsg.getAttachments().get(0).getUrl();
+			String output = App.cloudExec("wget -q -P "+Ref.storageName+"/" + storeNum + " " + fileLink);
+			
+			if(App.cloudExec("ls " + storeNum).equals("")) {
+				return "File was not stored succesfully.";
+			}else {
+				return "File stored succesfully in slot "+ storeNum + ".";
+			}
+			
+			
+			
+			
 				
 		}else {
 			return "No file attached!";
@@ -146,6 +187,28 @@ public class Cloud {
 		}
 	}
 	
+	public String showAll() {
+		//Verify that "storage" is a directory
+		if(!App.cloudExec("ls").contains(Ref.storageName)) {
+			App.cloudExec("mkdir " + Ref.storageName);
+		}
+		
+		String output = App.cloudExec("ls " + Ref.storageName);
+		String[] snowflakes = output.split("\n");
+		output = "";
+		for(int i = 0; i < snowflakes.length; i++) {
+			if(!App.cloudExec("ls " + snowflakes[i].trim()).equals("")) {
+				output += App.jda.getUserById(Long.parseLong(snowflakes[i].trim())).getName() + "\n";
+			}
+		}
+		
+		if(!output.equals("")){
+			return (output);
+		}else{
+			return ("There are no players you can battle against, currently.");
+		}
+	}
+	
 	public String verifyRetrieve(Message objMsg) {
 		String input = objMsg.getContentRaw();
 		String storeNum = input.substring(10,input.length());
@@ -175,6 +238,7 @@ public class Cloud {
 	}
 	
 	public File sendZip() {
+		deleteZip();
 		String zip = App.cloudExec("zip backup.zip " + Ref.storageName + "/*/*");
 		String filename = "../backup.zip";
 		filename = filename.trim();
