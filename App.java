@@ -52,6 +52,12 @@ import java.net.URLConnection;
 
 import java.lang.ProcessBuilder;
 
+//TODO: 
+//1. Scrape spreadsheet for new players. (ENTERING TESTING)
+//2. Language roles that people can sign up for. (FINISHED)
+//3. Censor admin cursing.
+
+
 public class App extends ListenerAdapter
 {
 	
@@ -62,6 +68,9 @@ public class App extends ListenerAdapter
 	boolean acceptingSubmissions = false;
 	static Date nextBackupDate = new Date(Ref.getTimeRaw().getTime() + Ref.backupInterval);
 	
+	static Spreadsheet spreadsheet = new Spreadsheet();
+	//last scan time
+	static Long lST = 0L;
 	
     public static void main( String[] args ) throws Exception
     {
@@ -75,7 +84,17 @@ public class App extends ListenerAdapter
         jda.getPresence().setGame(Game.of(Game.GameType.DEFAULT, "Dusting shelves..."));
         jda.addEventListener(new App());
         
+        ArrayList<Player> unaddedPlayers = new ArrayList<>();
         
+        try{
+        	unaddedPlayers = addPlayers();
+        }catch(Exception e) {
+        	String up = "";
+        	for(Player p : unaddedPlayers) {
+        		up += p.username + "\n";
+        	}
+        	jda.getTextChannelById(Ref.generalChId).sendMessage("These players were unable to be added as an @Player. Please resolve: \n" + up).queue();
+        }
         
         String path = System.getProperty("user.dir") +"/../" + Ref.storageName + "/" + Ref.backupLogFileName;
         File file = new File(path);
@@ -88,40 +107,71 @@ public class App extends ListenerAdapter
             writer.close();
         }
         
+        //Delta backup time
+        Long DBT = 0L;
+        //Delta spreadsheet scan time
+        Long DSST = 0L;
         while(true) {
-            String line = null;
-                // FileReader reads text files in the default encoding.
-                FileReader fileReader = 
-                    new FileReader(file);
-                // Always wrap FileReader in BufferedReader.
-                BufferedReader bufferedReader = 
-                    new BufferedReader(fileReader);
-                Date now = Ref.getTimeRaw();
-                Long difference = 0L;
-                Date lastUpdate = new Date();
-                while((line = bufferedReader.readLine()) != null) {
-                	 lastUpdate = new Date(Long.parseLong(line.trim()));
-                	 
-                }   
-                
-                while(difference < Ref.backupInterval) {/*Wait for backup time.*/ now = Ref.getTimeRaw(); difference = now.getTime() - lastUpdate.getTime();}
-                PrintWriter writer = new PrintWriter(Ref.backupLogFileName, "UTF-8");
-                writer.println(Ref.getTimeRaw().getTime());
-                backupCh.sendMessage("`BACKUP " + Ref.getTime() + "`").addFile(cloud.sendZip()).queue();
+        	String line = null;
+            // FileReader reads text files in the default encoding.
+            FileReader fileReader = 
+                new FileReader(file);
+            // Always wrap FileReader in BufferedReader.
+            BufferedReader bufferedReader = 
+                new BufferedReader(fileReader);
+            
+            Date now = Ref.getTimeRaw();
+            Date lastUpdate = new Date();
+            
+            while((line = bufferedReader.readLine()) != null) {
+            	 lastUpdate = new Date(Long.parseLong(line.trim()));
+            } 
+            DBT = now.getTime() - lastUpdate.getTime();
+            DSST = now.getTime() - lST;
+            bufferedReader.close();
+            now = Ref.getTimeRaw();
+        	if(DBT > Ref.backupInterval){
+        		/*Wait for backup time.*/ 
+        		PrintWriter writer = new PrintWriter(file,"UTF-8");
+        		
+                writer.println(now.getTime());
                 writer.close();
+                backupCh.sendMessage("`BACKUP " + Ref.getTime() + "`").addFile(cloud.sendZip()).queue();
                 nextBackupDate = new Date(Ref.getTimeRaw().getTime() + Ref.backupInterval);
-                // Always close files.
-                bufferedReader.close();
-        }
+        	}
+        	
+        	if(DSST > Ref.backupInterval){
+        		/*Wait for sheet scan time.*/ 
+        		unaddedPlayers.clear();  
+    	        try{
+    	        	unaddedPlayers = addPlayers();
+    	        }catch(Exception e) {
+    	        	//Unadded players
+    	        	String up = "";
+    	        	for(Player p : unaddedPlayers) {
+    	        		up += p.username + "\n";
+    	        	}
+    	        	jda.getTextChannelById(Ref.generalChId).sendMessage("These players were unable to be added as an @Player. Please resolve: \n" + up).queue();
+    	        }
+    	        lST = now.getTime();
+        	}
+        	
+
+        	
+        	
+        	
+        	
+        }  
         
         
     }
-
+    
     @Override
     public void onMessageReceived(MessageReceivedEvent evt) {
     	
     	//Objects
     	User objUser = evt.getAuthor();
+    	Member objMember = evt.getMember();
     	MessageChannel objMsgCh= evt.getChannel();
     	Message objMsg = evt.getMessage();
     	Guild objGuild = evt.getGuild();
@@ -170,14 +220,16 @@ public class App extends ListenerAdapter
     		EmbedBuilder eb = new EmbedBuilder();
             eb.setTitle("Update: " + Ref.version);
             eb.setDescription("Here's what's new:");
-            //eb.setDescription("Updated admin list.");
+            eb.setDescription("A new, sparkling HT-Backup.");
             eb.setColor(Ref.HTRed);
             eb.setFooter(Ref.getTime(), Ref.HTBackupLogoURL);
-            eb.addField("Schedule Updates:","Since we have closed submissions, the schedule is now to open up submissions when the new engine comes out. Submissions were closed May 27, 2018.", false);
-            eb.addField("2v2:","We have confirmed 2v2. We will be having 2v2 fights in the upcoming tournament. Get ready to work on your cooperation!", false);
-            eb.addField("Battles Updates:","For the rest of the season now, you can only submit bots and battle them if you're a @Player. Sign up with this link to become a player: https://goo.gl/forms/WaabWsdrQkw8f84x2", false);
-            
-//            eb.addField(">sample","SAMPLE INSTRUCTIONS",false);
+            eb.addField("Welcome to a new HT-Backup!","We now have language roles and automatic player scraping." ,false);
+            eb.addField(">myLang","Use >myLang LANGUAGE to assign yourself the role of a language. For example, type >myLang Java to be assigned the role of Java, and to remove"
+            		+ "yourself, just type >myLang Java again. We're adding this so that people can tag specific people who know a language so that people can easily help with"
+            		+ "debugging.", false);
+            eb.addField("Automatic Player Scraping (Beta)","Our bot now scraps the Google Spreadsheet for signups and assigns the role @Player automatically. This is still in testing,"
+            		+ "so we're not sure if it works yet.", false);
+            eb.addField("Signups","Signups close soon! Sign up before June 20 to play in Season III of Halite Tournaments! https://discord.gg/H9eYc4H", false);
             if(objMsg.getContentRaw().equals(Ref.prefix + "postUpdate")) {
             	jda.getTextChannelById(Ref.updateChId).sendMessage(eb.build()).queue(message ->{message.pin().queue();objMsgCh.sendMessage("Update sent.").queue();});
             	objMsg.delete().queue();
@@ -265,18 +317,27 @@ public class App extends ListenerAdapter
     	}else if(objMsg.getContentRaw().startsWith(Ref.prefix + "help")){
     		objMsgCh.sendMessage("```Here are the functions you can use for HT-Backup:"
     				+ "\nNOTE: SQUARE BRACKETS, OR [] MEANS PARAMETER. DO NOT INCLUDE THEM IN ACTUAL COMMAND.\n"
+    				
+    				+ "\n\nIMPORTANT AND USEFUL COMMANDS:"
     				+ "\n!submit: Submit your bot and HT-Backup will back up your file for you. ONLY usable in the channels #bots and #battles."
     				+ "\n>schedule: Get schedule for Season III."
     				+ "\n>submitted: Get all the players who have submitted."
-    				+ "\n>weather [CITY_NAME]: Check the weather in a certain city. Don't add the brackets in the command."
     				+ "\n>retrieve: Use this command to retrieve your bot. This is only usable in a Direct Message/Private Channel with the bot."
-    				+ "\n>status [BOT_NAME]: Returns a bot's online status."
-    				+ "\n>status: Return's HT Backup's status."
+    				+ "\n>myLang [LANGUAGE]: Assigns the role of LANGUAGE to you so that people can tag this role to get language-specific help. To remove yourself"
+    				+ "from this role, type this command again, with LANGUAGE as the role you want to remove."
+    				
+    				+ "\n\nCOOL COMMANDS"
+    				+ "\n>weather [CITY_NAME]: Check the weather in a certain city. Don't add the brackets in the command."
     				+ "\n>define [WORD]: Returns the definition of a word."
     				+ "\n>time: Returns time in UTC."
     				+ "\n>who [ID]: Returns who this ID is."
     				+ "\n>id [@PERSON]: Return @PERSON's id. Can tag many people to get their id's. NOTE: You can tag yourself to get your id."
     				+ "\n>nextBackup: Returns the next time HT-Backup will send a zip of all bot files to a private channel. This does not mean your bots aren't usually backed up, this is just to save an image of the current state of bots so we can revert back promptly."
+    				
+    				+ "\n\nMISC.:"
+    				+ "\n>invite: Returns the official invite link for Halite Tournaments."
+    				+ "\n>status [BOT_NAME]: Returns a bot's online status."
+    				+ "\n>status: Return's HT Backup's status."
     				+ "\n>admin: Shows admin commands. Only admins can use this command.```").queue();
     	}else if(objMsg.getContentRaw().startsWith(Ref.prefix + "admin") && Ref.adminIds.contains(objUser.getIdLong())) {
     		if(!verify(true,true,objMsg,objMsgCh,objUser)) {
@@ -755,11 +816,45 @@ public class App extends ListenerAdapter
     			
     		}
     		
+    	}else if(objMsg.getContentRaw().startsWith(Ref.prefix + "myLang")) {
+    		String input = objMsg.getContentRaw();
+    		String language = input.substring(7).trim();
+    		language = language.substring(0, 1).toUpperCase() + language.substring(1);
+    		
+    		Long roleId = Ref.langs.get(language);
+    		
+    		
+    		try {
+    			Role r = jda.getRoleById(roleId);
+    			GuildController gc = new GuildController(objGuild);
+    			if(objMember.getRoles().contains(r)) {
+    				gc.removeSingleRoleFromMember(objMember, r).queue();
+    				objMsgCh.sendMessage(objUser.getAsMention() + " You have been removed from " + language).queue();
+    			}else {
+            		gc.addSingleRoleToMember(objMember, r).queue();
+            		objMsgCh.sendMessage(objUser.getAsMention() + " You have been added to " + language).queue();
+    			}
+    			
+    		}catch(Exception e) {
+    			objMsgCh.sendMessage("Invalid language. Please choose a language from this list: "
+    					+ "\n`Java`"
+    					+ "\n`Python`"
+    					+ "\n`C#`"
+    					+ "\n`C++`"
+    					+ "\n`Dart`"
+    					+ "\n`Go`"
+    					+ "\n`Haskell`"
+    					+ "\n`Javascript`"
+    					+ "\n`Ruby`"
+    					+ "\n`Rust`").queue();
+    		}
     	}else if(objMsg.getContentRaw().startsWith(Ref.prefix + "nextBackup")) {
     		String currentDate = Ref.dateFormat.format(nextBackupDate) + " UTC";
     		objMsgCh.sendMessage("The next backup time will be " + currentDate).queue();
     	}
     }
+    
+    
     
     public static String executeCommand(String command) {
     	//Build command 
@@ -827,7 +922,7 @@ public class App extends ListenerAdapter
         return output;
     }
     
-    public Member getMemberByName(Guild guild,String name) {
+    public static Member getMemberByName(Guild guild,String name) {
     	List<Member> members = guild.getMembers();
 		int memberIndex = -1;
 		for(Member member : members) {
@@ -839,6 +934,21 @@ public class App extends ListenerAdapter
 			return null;
 		}else {
 			return members.get(memberIndex);
+		}
+    }
+    
+    public static Role getRoleByName(Guild guild,String name) {
+    	List<Role> roles = guild.getRoles();
+		int roleIndex = -1;
+		for(Role r : roles) {
+			if(r.getName().equals(name)) {
+				roleIndex = roles.indexOf(r);
+			}
+		}
+		if(roleIndex == -1) {
+			return null;
+		}else {
+			return roles.get(roleIndex);
 		}
     }
     
@@ -900,5 +1010,25 @@ public class App extends ListenerAdapter
     	}
     	return true;
     	
+    }
+    
+    public static ArrayList<Player> addPlayers() {
+    	ArrayList<Player> newPlayers = spreadsheet.scanSheet();
+        Guild HT = jda.getGuildById(Ref.HTGuildId);
+        ArrayList<Player> unaddedPlayers = new ArrayList<>();
+        if(newPlayers.size() > 0) {
+        	GuildController g = new GuildController(HT);
+        	for(Player p : newPlayers) {
+        		Member m = getMemberByName(HT, p.username);
+        		Role player = jda.getRoleById(Ref.playerRoleId);
+        		try {
+        			g.addRolesToMember(m,player);
+        		}catch(Exception e) {
+        			unaddedPlayers.add(p);
+        		}
+        	}
+        	return unaddedPlayers;
+        }
+        return null;
     }
 }

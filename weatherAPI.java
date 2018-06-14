@@ -17,16 +17,16 @@ public class weatherAPI{
 	public String getWeather(String city, String country, int reportNum) throws Exception{
 		DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
 		DocumentBuilder db = dbf.newDocumentBuilder();
-		Document doc = db.parse(new URL("http://api.openweathermap.org/data/2.5/forecast?q=burnaby&mode=xml&units=metric&appid=191b7c0599a63f6262a1cf6807772d70").openStream());
+		Document doc = db.parse(new URL("http://api.openweathermap.org/data/2.5/forecast?q=burnaby&mode=xml&units=metric&appid=" + Ref.weatherAPIKey).openStream());
 		
 		if(reportNum > (doc.getElementsByTagName("time").getLength() - 1) || reportNum < 0) {
 			return ("Forecast report number must be within 0-" + (doc.getElementsByTagName("time").getLength() - 1));
 		}
 		
 		if(country.equals("")) {
-			doc = db.parse(new URL("http://api.openweathermap.org/data/2.5/forecast?q="+city+"&mode=xml&units=metric&appid=191b7c0599a63f6262a1cf6807772d70").openStream());
+			doc = db.parse(new URL("http://api.openweathermap.org/data/2.5/forecast?q="+city+"&mode=xml&units=metric&appid=" + Ref.weatherAPIKey).openStream());
 		}else {
-			doc = db.parse(new URL("http://api.openweathermap.org/data/2.5/forecast?q="+city+","+country+"&mode=xml&units=metric&appid=191b7c0599a63f6262a1cf6807772d70").openStream());
+			doc = db.parse(new URL("http://api.openweathermap.org/data/2.5/forecast?q="+city+","+country+"&mode=xml&units=metric&appid=" + Ref.weatherAPIKey).openStream());
 		}
 		String location = doc.getElementsByTagName("name").item(0).getTextContent();
 		String iso3166 = doc.getElementsByTagName("country").item(0).getTextContent();
