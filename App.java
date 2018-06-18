@@ -76,8 +76,8 @@ public class App extends ListenerAdapter
     {
     	
     	
-    	jda = new JDABuilder(AccountType.BOT).setToken(Ref.TOKEN).buildBlocking();
-        //jda = new JDABuilder(AccountType.BOT).setToken(Ref.DEVTOKEN).buildBlocking();
+    	jda = new JDABuilder(AccountType.BOT).setToken(Key.TOKEN).buildBlocking();
+        //jda = new JDABuilder(AccountType.BOT).setToken(Key.DEVTOKEN).buildBlocking();
     	MessageChannel backupCh = jda.getTextChannelById(Ref.backupChId);
         jda.getPresence().setStatus(OnlineStatus.ONLINE);
         //
@@ -586,18 +586,19 @@ public class App extends ListenerAdapter
     		objMsg.delete().queue();
     	}else if(objMsg.getContentRaw().startsWith("!submit")) {
     		if(!acceptingSubmissions) {
-    			objMsg.delete().queue();
-    			objMsgCh.sendMessage("We are currently not accepting any submissions. To see schedule for submissions, type >schedule."
-    					+ "\nMessage expires in 10 seconds.").queue(message -> {
-    						double sentTime = System.currentTimeMillis();
-    			    		double currTime = 0;
-    			    		while(currTime - sentTime < 10000) {currTime = System.currentTimeMillis();}
-    			    		message.delete().queue();
-    					});
+    			Member HTBot = getMemberById(objGuild,"" + Ref.HTBotId);
+    			if(!HTBot.getOnlineStatus().equals(OnlineStatus.ONLINE)) {
+    				objMsg.delete().queue();
+        			objMsgCh.sendMessage("We are currently not accepting any submissions. To see schedule for submissions, type >schedule."
+        					+ "\nMessage expires in 10 seconds.").queue(message -> {
+        						double sentTime = System.currentTimeMillis();
+        			    		double currTime = 0;
+        			    		while(currTime - sentTime < 10000) {currTime = System.currentTimeMillis();}
+        			    		message.delete().queue();
+        					});
+    			}
     			return;
     		}
-    		
-    		
     		if(!objMsg.getMember().getRoles().contains(jda.getRolesByName("player", true).get(0))) {
     			objMsg.delete().queue();
     			objMsgCh.sendMessage("You can not battle! To battle, sign up for Season " + Ref.seasonNum + "using the link https://goo.gl/forms/WaabWsdrQkw8f84x2. After signing up, request the player role from a member of the @HT Team!"
@@ -610,8 +611,6 @@ public class App extends ListenerAdapter
     			return;
     		}
     		if(objMsgCh.getIdLong() == Ref.battlesChId || objMsgCh.getIdLong() == Ref.submitChId) {
-    			
-    			
 	    		Member HTBot = getMemberById(objGuild,"" + Ref.HTBotId);
 	    		if(HTBot.getOnlineStatus() == OnlineStatus.ONLINE) {
 	    			objMsgCh.sendMessage("Backing up your bot...").queue(message ->{
