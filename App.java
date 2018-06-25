@@ -53,9 +53,9 @@ import java.net.URLConnection;
 import java.lang.ProcessBuilder;
 
 //TODO: 
-//1. Scrape spreadsheet for new players. (ENTERING TESTING)
+//1. Scrape spreadsheet for new players. (FINISHED)
 //2. Language roles that people can sign up for. (FINISHED)
-//3. Censor admin cursing.
+//3. Censor admin cursing. (CANCELLED)
 
 
 public class App extends ListenerAdapter
@@ -65,13 +65,14 @@ public class App extends ListenerAdapter
 	static Cloud cloud = new Cloud();
 	String vegasWGET;
 	boolean mode = true;
-	boolean acceptingSubmissions = false;
+	boolean acceptingSubmissions = true;
 	static Date nextBackupDate = new Date(Ref.getTimeRaw().getTime() + Ref.backupInterval);
 	
 	static Spreadsheet spreadsheet = new Spreadsheet();
 	//last scan time
 	static Long lST = 0L;
-	
+	static Long DSST;
+	static Date nextScanDate = new Date(); 
     public static void main( String[] args ) throws Exception
     {
     	
@@ -84,17 +85,15 @@ public class App extends ListenerAdapter
         jda.getPresence().setGame(Game.of(Game.GameType.DEFAULT, "Dusting shelves..."));
         jda.addEventListener(new App());
         
-        ArrayList<Player> unaddedPlayers = new ArrayList<>();
+        ArrayList<Player> unaddedPlayers = addPlayers();
         
-        try{
-        	unaddedPlayers = addPlayers();
-        }catch(Exception e) {
+        if(unaddedPlayers.size() > 0) {
         	String up = "";
         	for(Player p : unaddedPlayers) {
         		up += p.username + "\n";
         	}
-        	jda.getTextChannelById(Ref.generalChId).sendMessage("These players were unable to be added as an @Player. Please resolve: \n" + up).queue();
-        }
+        	jda.getTextChannelById(Ref.privateChId).sendMessage("These players were unable to be added as an @Player. Please resolve: \n" + up).queue();
+      	}
         
         String path = System.getProperty("user.dir") +"/../" + Ref.storageName + "/" + Ref.backupLogFileName;
         File file = new File(path);
@@ -110,7 +109,7 @@ public class App extends ListenerAdapter
         //Delta backup time
         Long DBT = 0L;
         //Delta spreadsheet scan time
-        Long DSST = 0L;
+        DSST = 0L;
         while(true) {
         	String line = null;
             // FileReader reads text files in the default encoding.
@@ -140,7 +139,8 @@ public class App extends ListenerAdapter
                 nextBackupDate = new Date(Ref.getTimeRaw().getTime() + Ref.backupInterval);
         	}
         	
-        	if(DSST > Ref.backupInterval){
+        	if(DSST > Ref.signupScanInterval){
+        		jda.getTextChannelById(Ref.privateChId).sendMessage("Automatic scrape. [" + Ref.getTime() + "]").queue();
         		/*Wait for sheet scan time.*/ 
         		unaddedPlayers.clear();  
     	        try{
@@ -151,16 +151,11 @@ public class App extends ListenerAdapter
     	        	for(Player p : unaddedPlayers) {
     	        		up += p.username + "\n";
     	        	}
-    	        	jda.getTextChannelById(Ref.generalChId).sendMessage("These players were unable to be added as an @Player. Please resolve: \n" + up).queue();
+    	        	jda.getTextChannelById(Ref.privateChId).sendMessage("These players were unable to be added as an @Player. Please resolve: \n" + up).queue();
     	        }
     	        lST = now.getTime();
+    	        nextScanDate = new Date(now.getTime() + Ref.signupScanInterval);
         	}
-        	
-
-        	
-        	
-        	
-        	
         }  
         
         
@@ -190,6 +185,234 @@ public class App extends ListenerAdapter
     		}
     	}
     	
+    	//Verify private and admin commands.
+    	if(verify(true,true,objMsg,objMsgCh,objUser)) {
+    		if(objMsg.getContentRaw().startsWith(Ref.prefix + "admin") && Ref.adminIds.contains(objUser.getIdLong())) {
+        			objMsgCh.sendMessage("```ADMIN FUNCTIONS:"
+    	    				+ "\nNOTE: SQUARE BRACKETS, OR [] MEANS PARAMETER. DO NOT INCLUDE THEM IN ACTUAL COMMAND."
+    	    				+ "\n\nFILE ACCESS:"
+    	    				+ "\n>show all: Shows all player that have submitted. NOTE: The slot name is only the player's id. The name is only to help identify who the player is."
+    	    				+ "\n>show [PLAYER_ID]: Returns the filename in a player's slot."
+    	    				+ "\n>retrieve [PLAYER_ID]: Returns file in a player's slot."
+    	    				+ "\n>remove [PLAYER_ID]: Removes a player's slot."
+    	    				+ "\n>empty [PLAYER_ID]: Removes all files in a player's slot."
+    	    				+ "\n>store [PLAYER_ID]: Stores a file in player's slot. Must have file attached to message."
+    	    				+ "\n>restore: Returns all backed up bots."
+    	    				+ "\n>getVegasFile: Returns " + Ref.vegasFile + "."
+    	    				+ "\n>setVegasFile [" + Ref.vegasFile.toUpperCase() + "]: Replaces the " + Ref.vegasFile + "."
+    	    				+ "\n\nBOT CONTROL:"
+    	    				+ "\n>backupInterval [TIME_IN_MILLESECONDS]: Sets the interval that the bot sends a zipped file of bots to the channel #backups"
+    	    				+ "\n>toggleSubmissions: Toggles the submissions status, whether submissions are open or not. They are closed by default, and must be opened manually."
+    	    				+ "\n>init 0 [DOWNTIME]: Shuts down HT Backup. Sends a message informing users HT Backup will be down for DOWNTIME minutes."
+    	    				+ "\n>init 0: Shuts down HT Backup. Sends a message informing users HT Backup will be down for 30 minutes."
+    	    				+ "\n>postUpdate: Sends the current update message."
+    	    				+ "\n>revealUpdate: Sends the current update message in current channel."
+    	    				+ "\n>echo [STRING]: Sends STRING back in the same channel and deletes user's message."
+    	    				+ "\n>playing [STRING]: Sets HT-Backup to be playing STRING."
+    	    				+ "\n>onlineStatus [STATUS]: Sets HT-Backup's online status."
+    	    				+ "\n\nCHANNEL CONTROL:"
+    	    				+ "\n>submitChannel [NEW_CHANNEL_ID]: Sets primary submission channel id."
+    	    				+ "\n>battleChannel [NEW_CHANNEL_ID]: Sets secondary submission channel id."
+    	    				+ "\n>privateChannel [NEW_CHANNEL_ID]: Sets private channel id. Ex. #halite is a private channel. NOTE: Any channel named 'halite' will be automatically private."
+    	    				+ "\n>getIds: Returns all the guild and channel IDs currently."
+    	    				+ "\n>toggleMode: Toggles whether users can use commands or not.```").queue();
+        	}else if(objMsg.getContentRaw().startsWith(Ref.prefix + "battleChannel ") && Ref.adminIds.contains(objUser.getIdLong())) {
+        			String input = objMsg.getContentRaw();
+    	    		String id = input.substring(15).trim();
+    	    		Long idLong = Long.parseLong(id);
+    	    		Ref.battlesChId = idLong;
+    	    		objMsgCh.sendMessage("battlesChId set to " + id).queue();
+        	}else if(objMsg.getContentRaw().equalsIgnoreCase(Ref.prefix + "toggleSubmissions")) {
+        			if(acceptingSubmissions) {
+        				acceptingSubmissions = false;
+        			}else {
+        				acceptingSubmissions = true;
+        			}
+    	    		objMsgCh.sendMessage("acceptingSubmissions has been set to " + acceptingSubmissions).queue();
+        	}else if(objMsg.getContentRaw().equalsIgnoreCase(Ref.prefix + "getIds")) {
+        			String output = "";
+        			System.out.println(Ref.battlesChId);
+        			output += "battleChId = " + Ref.battlesChId + ", name of channel is " + jda.getTextChannelById(Ref.battlesChId).getName() + "\n";
+        			output += "submitChId = " + Ref.submitChId + ", name of channel is " + jda.getTextChannelById(Ref.submitChId).getName() + "\n";
+        			output += "privateChId = " + Ref.submitChId + ", name of channel is " + jda.getTextChannelById(Ref.privateChId).getName() + "\n";
+        			
+        			output += "privateChannels= {";
+        			for(Long l : Ref.privateChannels) {
+        				output += "name=" + jda.getTextChannelById(l).getName() + ":id=" + l + "\n";
+        			}
+        			output += "}\n";
+        			
+        			objMsgCh.sendMessage(output).queue();
+        		
+        		
+        		
+        	}else if(objMsg.getContentRaw().startsWith(Ref.prefix + "submitChannel ")) {
+    	    		String input = objMsg.getContentRaw();
+    	    		String id = input.substring(14).trim();
+    	    		Long idLong = Long.parseLong(id);
+    	    		Ref.submitChId = idLong;
+    	    		
+    	    		objMsgCh.sendMessage("submitChIdset set to " + id).queue();
+        		
+        	}else if(objMsg.getContentRaw().startsWith(Ref.prefix + "privateChannel ")) {
+    	    		String input = objMsg.getContentRaw();
+    	    		String id = input.substring(15).trim();
+    	    		Long idLong = Long.parseLong(id);
+    	    		Ref.privateChId = idLong;
+    	    		
+    	    		objMsgCh.sendMessage("Set privateChId to " + id).queue();
+        		
+        	}else if(objMsg.getContentRaw().startsWith(Ref.prefix + "backupInterval ")) {
+    	    		String input = objMsg.getContentRaw();
+    	    		String interval = input.substring(15).trim();
+    	    		Long intervalLong = Long.parseLong(interval);
+    	    		if(intervalLong > 60000) {
+    	    			Ref.backupInterval = intervalLong;
+    	    		}else {
+    	    			objMsgCh.sendMessage("Interval is too short. Must be greater than 60000ms").queue();
+    	    			return;
+    	    		}
+    	    		objMsgCh.sendMessage("Set backupInterval to " + Ref.backupInterval).queue();
+        	}else if(objMsg.getContentRaw().equalsIgnoreCase(Ref.prefix + "getVegasFile")) {
+        			File file = new File("../Vegas/" + Ref.vegasFile);
+        			objMsgCh.sendFile(file).queue();
+        	}else if(objMsg.getContentRaw().equalsIgnoreCase(Ref.prefix + "setVegasFile")) {
+    	    		if(Ref.adminIds.contains(objUser.getIdLong())) {
+    	    			vegasWGET = objMsg.getAttachments().get(0).getUrl();
+    	    			objMsgCh.sendMessage(objUser.getAsMention() + " `WARNING: SETTING THIS FILE WILL OVERWRITE PREVIOUS FILE. TO CONFIRM OVERWRITE, TYPE >confirmSetVegasFile`").queue();
+    	    		}
+        	}else if(objMsg.getContentRaw().equalsIgnoreCase(Ref.prefix + "confirmSetVegasFile")) {
+    			if(Ref.adminIds.contains(objUser.getIdLong())) {
+        			if(!vegasWGET.equals("")) {
+        				objMsgCh.sendMessage(objUser.getAsMention() + " `Updating " + Ref.vegasFile + "`").queue(message -> {
+        					executeCommand("rm ../Vegas/" + Ref.vegasFile);
+        					executeCommand("wget " + vegasWGET + " -P ../Vegas/");
+        					message.editMessage("`TIMESTAMP: " + Ref.getTime() + "` Update complete. Logging action...").queue();
+        					jda.getTextChannelById(Ref.logChId).sendMessage(Ref.getTime() + ", " + objUser.getAsMention() + " updated " + Ref.vegasFile).queue();
+        					message.editMessage("Action logged. Message expires in 5 seconds.").queue();
+        					vegasWGET = "";
+        					try {
+    							Thread.sleep(5000);
+    						} catch (InterruptedException e) {}
+        					message.delete().queue();
+        				});
+        			}
+        		}
+        	}else if(objMsg.getContentRaw().startsWith(Ref.prefix + "store")){
+        		String id = objMsg.getContentRaw().substring(7);
+        		objMsgCh.sendMessage(cloud.store(objMsg,id)).queue();
+        	}else if(objMsg.getContentRaw().startsWith(Ref.prefix + "empty")){
+        		objMsgCh.sendMessage(cloud.empty(objMsg)).queue();
+        		jda.getPresence().setGame(Game.of(Game.GameType.DEFAULT, "Recycling paper..."));
+        		
+        		double sentTime = System.currentTimeMillis();
+        		double currTime = 0;
+        		while(currTime - sentTime < 5000) {currTime = System.currentTimeMillis();}
+        		jda.getPresence().setGame(Game.of(Game.GameType.DEFAULT, "Enjoying a snack ..."));
+        	}else if(objMsg.getContentRaw().startsWith(Ref.prefix + "remove")) {
+        		objMsgCh.sendMessage(cloud.remove(objMsg)).queue();
+        		jda.getPresence().setGame(Game.of(Game.GameType.DEFAULT, "Throwing away garbage..."));
+        	}else if(objMsg.getContentRaw().startsWith(Ref.prefix + "show")) {
+        		objMsgCh.sendMessage(cloud.show(objMsg)).queue();
+        		jda.getPresence().setGame(Game.of(Game.GameType.DEFAULT, "Dusting shelves..."));
+        	}else if(objMsg.getContentRaw().startsWith(Ref.prefix + "urban")) {
+        		if(!verify(true,true,objMsg,objMsgCh,objUser)) {
+        			objMsg.delete().queue();
+        			objMsgCh.sendMessage(objUser.getAsMention() + " `Please use this in a private channel. Message expires in 5 seconds.`").queue(message ->{
+        				double sentTime = System.currentTimeMillis();
+    		    		double currTime = 0;
+    		    		while(currTime - sentTime < 5000) {currTime = System.currentTimeMillis();}
+    		    		message.delete().queue();
+        			});
+        		}else {
+        			objMsgCh.sendMessage(urbanDict(objMsg.getContentRaw())).queue();
+        		}
+        		
+        	}else if(objMsg.getContentRaw().equals(Ref.prefix + "restore")) {
+        		
+        		objMsgCh.sendFile(cloud.sendZip()).queue(message ->{
+        			message.editMessage("`Files sent and zip has been cleared in directory.`").queue();
+        		});
+        		cloud.deleteZip();
+        	}else if(objMsg.getContentRaw().equals(Ref.prefix + "scrape")) {
+        		ArrayList<Player> unaddedPlayers = new ArrayList<>();
+        		 	try{
+        	        	unaddedPlayers = addPlayers();
+        	        }catch(Exception e) {
+        	        	String up = "";
+        	        	for(Player p : unaddedPlayers) {
+        	        		up += p.username + "\n";
+        	        	}
+        	        	jda.getTextChannelById(Ref.generalChId).sendMessage("These players were unable to be added as an @Player. Please resolve: \n" + up).queue();
+        	        }
+        		 objMsgCh.sendMessage("Spreadsheet scraped.").queue();
+        	}
+    		
+    	}
+    	//End verify private and admin commands
+    	
+    	//Verify public and admin commands
+    	if(verify(false,true,objMsg,objMsgCh,objUser)) {
+    		if(objMsg.getContentRaw().startsWith(Ref.prefix + "delete")) {
+        		String input = objMsg.getContentRaw();
+        		int num = 0;
+        		try {
+        			num = Integer.parseInt(input.substring(8).trim());
+        		}catch(Exception e) {
+        			objMsgCh.sendMessage("Must enter valid integer").queue();
+        		}
+        		
+    			objMsg.delete().queue();
+    			List<Message> messages = objMsgCh.getHistory().retrievePast(num).complete();
+    			for(Message m : messages) {
+    				jda.getTextChannelById(Ref.dumpChId).sendMessage(m).queue();
+    				m.delete().queue();
+    			}
+        	}else if(objMsg.getContentRaw().startsWith(Ref.prefix +"echo")){
+        		String input = objMsg.getContentRaw();
+        		String echo = input.substring(6);
+        		objMsgCh.sendMessage(echo).queue();
+        		objMsg.delete().queue();
+        	}else if(objMsg.getContentRaw().startsWith(Ref.prefix + "init 0")) {
+        		long timeInMin = 0;
+        		try {
+        			timeInMin = Long.parseLong(objMsg.getContentRaw().substring(7).trim());
+        		}catch (Exception e) {
+        			timeInMin = 30;
+        		}
+        		String currentDate = Ref.getTime(objMsg.getContentRaw().substring(7).trim());
+    			objMsgCh.sendMessage("HT-Backup is going offline for "+timeInMin+" minutes. It will be back online at " + currentDate).queue();
+    			objMsg.delete().queue();
+	    		jda.shutdown();
+        	}else if(objMsg.getContentRaw().startsWith(Ref.prefix + "playing")){
+        			jda.getPresence().setGame(Game.of(Game.GameType.DEFAULT, objMsg.getContentRaw().substring(9)));
+        	}else if(objMsg.getContentRaw().startsWith(Ref.prefix + "onlineStatus")){
+        			String input = objMsg.getContentRaw();
+        			String status = input.substring(13).trim();
+        			//objMsgCh.sendMessage(status).queue();
+        			if(status.equalsIgnoreCase("online")) {
+        				jda.getPresence().setStatus(OnlineStatus.ONLINE);
+        			}else if(status.equalsIgnoreCase("offline")) {
+        				jda.getPresence().setStatus(OnlineStatus.OFFLINE);
+        			}else if(status.equalsIgnoreCase("idle")) {
+        				jda.getPresence().setStatus(OnlineStatus.IDLE);
+        			}else if(status.equalsIgnoreCase("DO-NOT-DISTURB")) {
+        				jda.getPresence().setStatus(OnlineStatus.DO_NOT_DISTURB);
+        			}else {
+        				objMsgCh.sendMessage("`Invalid status. Choose from {online, offline, idle, do-not-disturb}`").queue();
+        			}
+        			objMsgCh.sendMessage("`STATUS: " + jda.getPresence().getStatus() + "`").queue();
+        	}else if(objMsg.getContentRaw().startsWith(Ref.prefix +"setInvite")) {
+        		String input = objMsg.getContentRaw();
+        		String link = input.substring(6);
+        		Ref.inviteLink = link;
+        		objMsgCh.sendMessage("inviteLink set to " + Ref.inviteLink).queue();
+        	}
+    	}
+    	//End verify public and admin commands
+    	
+    		
+    	//Non-admin commands	
 	    if(objMsg.getContentRaw().startsWith(Ref.prefix+"status")) {
 	    	String input = objMsg.getContentRaw();
 	    	String botName = input.substring(7);
@@ -220,48 +443,15 @@ public class App extends ListenerAdapter
     		EmbedBuilder eb = new EmbedBuilder();
             eb.setTitle("Update: " + Ref.version);
             eb.setDescription("Here's what's new:");
-            eb.setDescription("A new, sparkling HT-Backup.");
             eb.setColor(Ref.HTRed);
             eb.setFooter(Ref.getTime(), Ref.HTBackupLogoURL);
-            eb.addField("Welcome to a new HT-Backup!","We now have language roles and automatic player scraping." ,false);
-            eb.addField(">myLang","Use >myLang LANGUAGE to assign yourself the role of a language. For example, type >myLang Java to be assigned the role of Java, and to remove"
-            		+ "yourself, just type >myLang Java again. We're adding this so that people can tag specific people who know a language so that people can easily help with"
-            		+ "debugging.", false);
-            eb.addField("Automatic Player Scraping (Beta)","Our bot now scraps the Google Spreadsheet for signups and assigns the role @Player automatically. This is still in testing,"
-            		+ "so we're not sure if it works yet.", false);
-            eb.addField("Signups","Signups close soon! Sign up before June 20 to play in Season III of Halite Tournaments! https://discord.gg/H9eYc4H", false);
+            eb.addField("Automatic Player Scraping","Now working! Once you sign up, you will be automatically added as a player within 30 minutes.", false);
             if(objMsg.getContentRaw().equals(Ref.prefix + "postUpdate")) {
             	jda.getTextChannelById(Ref.updateChId).sendMessage(eb.build()).queue(message ->{message.pin().queue();objMsgCh.sendMessage("Update sent.").queue();});
             	objMsg.delete().queue();
             }else {
             	objMsgCh.sendMessage(eb.build()).queue();
             }
-            
-//            jda.getTextChannelById(Ref.devChId).sendMessage(eb.build()).queue(message ->{message.pin().queue();});
-    		
-    		
-    	}else if(objMsg.getContentRaw().startsWith(Ref.prefix + "playing")){
-    		if(verify(false, true,objMsg,objMsgCh,objUser)) {
-    			jda.getPresence().setGame(Game.of(Game.GameType.DEFAULT, objMsg.getContentRaw().substring(9)));
-    		}
-    	}else if(objMsg.getContentRaw().startsWith(Ref.prefix + "onlineStatus")){
-    		if(verify(false, true,objMsg,objMsgCh,objUser)) {
-    			String input = objMsg.getContentRaw();
-    			String status = input.substring(13).trim();
-    			//objMsgCh.sendMessage(status).queue();
-    			if(status.equalsIgnoreCase("online")) {
-    				jda.getPresence().setStatus(OnlineStatus.ONLINE);
-    			}else if(status.equalsIgnoreCase("offline")) {
-    				jda.getPresence().setStatus(OnlineStatus.OFFLINE);
-    			}else if(status.equalsIgnoreCase("idle")) {
-    				jda.getPresence().setStatus(OnlineStatus.IDLE);
-    			}else if(status.equalsIgnoreCase("DO-NOT-DISTURB")) {
-    				jda.getPresence().setStatus(OnlineStatus.DO_NOT_DISTURB);
-    			}else {
-    				objMsgCh.sendMessage("`Invalid status. Choose from {online, offline, idle, do-not-disturb}`").queue();
-    			}
-    			objMsgCh.sendMessage("`STATUS: " + jda.getPresence().getStatus() + "`").queue();
-    		}
     	}else if(objMsg.getContentRaw().equalsIgnoreCase(Ref.prefix +"invite")) {
     		EmbedBuilder eb = new EmbedBuilder();
     		eb.setTitle("Halite Tournaments Official Invite Link");
@@ -269,11 +459,6 @@ public class App extends ListenerAdapter
     		eb.setImage(Ref.logoURL);
     		eb.setDescription(Ref.inviteLink);
     		objMsgCh.sendMessage(eb.build()).queue();
-    	}else if(objMsg.getContentRaw().startsWith(Ref.prefix +"setInvite")) {
-    		String input = objMsg.getContentRaw();
-    		String link = input.substring(6);
-    		Ref.inviteLink = link;
-    		objMsgCh.sendMessage("inviteLink set to " + Ref.inviteLink).queue();
     	}else if(objMsg.getContentRaw().startsWith(Ref.prefix +"disco")) {
     		EmbedBuilder eb = new EmbedBuilder();
     		eb.setTitle("♪♪ ヽ(ˇ∀ˇ )ゞ");
@@ -339,45 +524,6 @@ public class App extends ListenerAdapter
     				+ "\n>status [BOT_NAME]: Returns a bot's online status."
     				+ "\n>status: Return's HT Backup's status."
     				+ "\n>admin: Shows admin commands. Only admins can use this command.```").queue();
-    	}else if(objMsg.getContentRaw().startsWith(Ref.prefix + "admin") && Ref.adminIds.contains(objUser.getIdLong())) {
-    		if(!verify(true,true,objMsg,objMsgCh,objUser)) {
-    			objMsg.delete().queue();
-    			objMsgCh.sendMessage(objUser.getAsMention() + " `Please use this in a private channel. Message expires in 5 seconds.`").queue(message ->{
-    				double sentTime = System.currentTimeMillis();
-		    		double currTime = 0;
-		    		while(currTime - sentTime < 5000) {currTime = System.currentTimeMillis();}
-		    		message.delete().queue();
-    			});
-    		}else {
-    			objMsgCh.sendMessage("```ADMIN FUNCTIONS:"
-	    				+ "\nNOTE: SQUARE BRACKETS, OR [] MEANS PARAMETER. DO NOT INCLUDE THEM IN ACTUAL COMMAND."
-	    				+ "\n\nFILE ACCESS:"
-	    				+ "\n>show all: Shows all player that have submitted. NOTE: The slot name is only the player's id. The name is only to help identify who the player is."
-	    				+ "\n>show [PLAYER_ID]: Returns the filename in a player's slot."
-	    				+ "\n>retrieve [PLAYER_ID]: Returns file in a player's slot."
-	    				+ "\n>remove [PLAYER_ID]: Removes a player's slot."
-	    				+ "\n>empty [PLAYER_ID]: Removes all files in a player's slot."
-	    				+ "\n>store [PLAYER_ID]: Stores a file in player's slot. Must have file attached to message."
-	    				+ "\n>restore: Returns all backed up bots."
-	    				+ "\n>getVegasFile: Returns " + Ref.vegasFile + "."
-	    				+ "\n>setVegasFile [" + Ref.vegasFile.toUpperCase() + "]: Replaces the " + Ref.vegasFile + "."
-	    				+ "\n\nBOT CONTROL:"
-	    				+ "\n>backupInterval [TIME_IN_MILLESECONDS]: Sets the interval that the bot sends a zipped file of bots to the channel #backups"
-	    				+ "\n>toggleSubmissions: Toggles the submissions status, whether submissions are open or not. They are closed by default, and must be opened manually."
-	    				+ "\n>init 0 [DOWNTIME]: Shuts down HT Backup. Sends a message informing users HT Backup will be down for DOWNTIME minutes."
-	    				+ "\n>init 0: Shuts down HT Backup. Sends a message informing users HT Backup will be down for 30 minutes."
-	    				+ "\n>postUpdate: Sends the current update message."
-	    				+ "\n>revealUpdate: Sends the current update message in current channel."
-	    				+ "\n>echo [STRING]: Sends STRING back in the same channel and deletes user's message."
-	    				+ "\n>playing [STRING]: Sets HT-Backup to be playing STRING."
-	    				+ "\n>onlineStatus [STATUS]: Sets HT-Backup's online status."
-	    				+ "\n\nCHANNEL CONTROL:"
-	    				+ "\n>submitChannel [NEW_CHANNEL_ID]: Sets primary submission channel id."
-	    				+ "\n>battleChannel [NEW_CHANNEL_ID]: Sets secondary submission channel id."
-	    				+ "\n>privateChannel [NEW_CHANNEL_ID]: Sets private channel id. Ex. #halite is a private channel. NOTE: Any channel named 'halite' will be automatically private."
-	    				+ "\n>getIds: Returns all the guild and channel IDs currently."
-	    				+ "\n>toggleMode: Toggles whether users can use commands or not.```").queue();
-    		}
     	}else if(objMsg.getContentRaw().startsWith(Ref.prefix + "who")) {
     		String input = objMsg.getContentRaw();
     		String id = input.substring(5).trim();
@@ -385,125 +531,6 @@ public class App extends ListenerAdapter
     		String name = jda.getUserById(idLong).getAsMention();
     		
     		objMsgCh.sendMessage(id + " is " + name).queue();
-    	}else if(objMsg.getContentRaw().startsWith(Ref.prefix + "battleChannel ") && Ref.adminIds.contains(objUser.getIdLong())) {
-    		if(!verify(true,true,objMsg,objMsgCh,objUser)) {
-    			objMsg.delete().queue();
-    			objMsgCh.sendMessage(objUser.getAsMention() + " `Please use this in a private channel. Message expires in 5 seconds.`").queue(message ->{
-    				double sentTime = System.currentTimeMillis();
-		    		double currTime = 0;
-		    		while(currTime - sentTime < 5000) {currTime = System.currentTimeMillis();}
-		    		message.delete().queue();
-    			});
-    		}else {
-    			String input = objMsg.getContentRaw();
-	    		String id = input.substring(15).trim();
-	    		Long idLong = Long.parseLong(id);
-	    		Ref.battlesChId = idLong;
-	    		objMsgCh.sendMessage("battlesChId set to " + id).queue();
-    		}
-    		
-    		
-    	}else if(objMsg.getContentRaw().startsWith(Ref.prefix + "toggleSubmissions ") && Ref.adminIds.contains(objUser.getIdLong())) {
-    		if(!verify(true,true,objMsg,objMsgCh,objUser)) {
-    			objMsg.delete().queue();
-    			objMsgCh.sendMessage(objUser.getAsMention() + " `Please use this in a private channel. Message expires in 5 seconds.`").queue(message ->{
-    				double sentTime = System.currentTimeMillis();
-		    		double currTime = 0;
-		    		while(currTime - sentTime < 5000) {currTime = System.currentTimeMillis();}
-		    		message.delete().queue();
-    			});
-    		}else {
-    			if(acceptingSubmissions) {
-    				acceptingSubmissions = false;
-    			}else {
-    				acceptingSubmissions = true;
-    			}
-	    		objMsgCh.sendMessage("acceptingSubmissions has been set to " + acceptingSubmissions).queue();
-    		}
-    		
-    		
-    	}else if(objMsg.getContentRaw().equalsIgnoreCase(Ref.prefix + "getIds") && Ref.adminIds.contains(objUser.getIdLong())) {
-    		if(!verify(true,true,objMsg,objMsgCh,objUser)) {
-    			objMsg.delete().queue();
-    			objMsgCh.sendMessage(objUser.getAsMention() + " `Please use this in a private channel. Message expires in 5 seconds.`").queue(message ->{
-    				double sentTime = System.currentTimeMillis();
-		    		double currTime = 0;
-		    		while(currTime - sentTime < 5000) {currTime = System.currentTimeMillis();}
-		    		message.delete().queue();
-    			});
-    		}else {
-    			String output = "";
-    			System.out.println(Ref.battlesChId);
-    			output += "battleChId = " + Ref.battlesChId + ", name of channel is " + jda.getTextChannelById(Ref.battlesChId).getName() + "\n";
-    			output += "submitChId = " + Ref.submitChId + ", name of channel is " + jda.getTextChannelById(Ref.submitChId).getName() + "\n";
-    			output += "privateChId = " + Ref.submitChId + ", name of channel is " + jda.getTextChannelById(Ref.privateChId).getName() + "\n";
-    			
-    			output += "privateChannels= {";
-    			for(Long l : Ref.privateChannels) {
-    				output += "name=" + jda.getTextChannelById(l).getName() + ":id=" + l + "\n";
-    			}
-    			output += "}\n";
-    			
-    			objMsgCh.sendMessage(output).queue();
-    		}
-    		
-    		
-    	}else if(objMsg.getContentRaw().startsWith(Ref.prefix + "submitChannel ") && Ref.adminIds.contains(objUser.getIdLong())) {
-    		if(!verify(true,true,objMsg,objMsgCh,objUser)) {
-    			objMsg.delete().queue();
-    			objMsgCh.sendMessage(objUser.getAsMention() + " `Please use this in a private channel. Message expires in 5 seconds.`").queue(message ->{
-    				double sentTime = System.currentTimeMillis();
-		    		double currTime = 0;
-		    		while(currTime - sentTime < 5000) {currTime = System.currentTimeMillis();}
-		    		message.delete().queue();
-    			});
-    		}else {
-	    		String input = objMsg.getContentRaw();
-	    		String id = input.substring(14).trim();
-	    		Long idLong = Long.parseLong(id);
-	    		Ref.submitChId = idLong;
-	    		
-	    		objMsgCh.sendMessage("submitChIdset set to " + id).queue();
-    		}
-    	}else if(objMsg.getContentRaw().startsWith(Ref.prefix + "privateChannel ") && Ref.adminIds.contains(objUser.getIdLong())) {
-    		if(!verify(true,true,objMsg,objMsgCh,objUser)) {
-    			objMsg.delete().queue();
-    			objMsgCh.sendMessage(objUser.getAsMention() + " `Please use this in a private channel. Message expires in 5 seconds.`").queue(message ->{
-    				double sentTime = System.currentTimeMillis();
-		    		double currTime = 0;
-		    		while(currTime - sentTime < 5000) {currTime = System.currentTimeMillis();}
-		    		message.delete().queue();
-    			});
-    		}else {
-	    		String input = objMsg.getContentRaw();
-	    		String id = input.substring(15).trim();
-	    		Long idLong = Long.parseLong(id);
-	    		Ref.privateChId = idLong;
-	    		
-	    		objMsgCh.sendMessage("Set privateChId to " + id).queue();
-    		}
-    	}else if(objMsg.getContentRaw().startsWith(Ref.prefix + "backupInterval ") && Ref.adminIds.contains(objUser.getIdLong())) {
-    		if(!verify(true,true,objMsg,objMsgCh,objUser)) {
-    			objMsg.delete().queue();
-    			objMsgCh.sendMessage(objUser.getAsMention() + " `Please use this in a private channel. Message expires in 5 seconds.`").queue(message ->{
-    				double sentTime = System.currentTimeMillis();
-		    		double currTime = 0;
-		    		while(currTime - sentTime < 5000) {currTime = System.currentTimeMillis();}
-		    		message.delete().queue();
-    			});
-    		}else {
-	    		String input = objMsg.getContentRaw();
-	    		String interval = input.substring(15).trim();
-	    		Long intervalLong = Long.parseLong(interval);
-	    		if(intervalLong > 60000) {
-	    			Ref.backupInterval = intervalLong;
-	    		}else {
-	    			objMsgCh.sendMessage("Interval is too short. Must be greater than 60000ms").queue();
-	    			return;
-	    		}
-	    		
-	    		objMsgCh.sendMessage("Set backupInterval to " + Ref.backupInterval).queue();
-    		}
     	}
     	else if(objMsg.getContentRaw().startsWith(Ref.prefix + "id")) {
     		List<Member> mentioned = objMsg.getMentionedMembers();
@@ -513,78 +540,12 @@ public class App extends ListenerAdapter
     		}
     		objMsgCh.sendMessage(output).queue();
     	}
-    	else if(objMsg.getContentRaw().equalsIgnoreCase(Ref.prefix + "getVegasFile")) {
-    		if(Ref.adminIds.contains(objUser.getIdLong())) {
-    			File file = new File("../Vegas/" + Ref.vegasFile);
-    			objMsgCh.sendFile(file).queue();
-    		}
-    	}else if(objMsg.getContentRaw().equalsIgnoreCase(Ref.prefix + "setVegasFile")) {
-    		if(!verify(true,true,objMsg,objMsgCh,objUser)) {
-    			objMsg.delete().queue();
-    			objMsgCh.sendMessage(objUser.getAsMention() + " `Please use this in a private channel. Message expires in 5 seconds.`").queue(message ->{
-    				double sentTime = System.currentTimeMillis();
-		    		double currTime = 0;
-		    		while(currTime - sentTime < 5000) {currTime = System.currentTimeMillis();}
-		    		message.delete().queue();
-    			});
-    		}else {
-	    		if(Ref.adminIds.contains(objUser.getIdLong())) {
-	    			vegasWGET = objMsg.getAttachments().get(0).getUrl();
-	    			objMsgCh.sendMessage(objUser.getAsMention() + " `WARNING: SETTING THIS FILE WILL OVERWRITE PREVIOUS FILE. TO CONFIRM OVERWRITE, TYPE >confirmSetVegasFile`").queue();
-	    		}
-    		}
-    	}else if(objMsg.getContentRaw().equalsIgnoreCase(Ref.prefix + "submitted")) {
+    	else if(objMsg.getContentRaw().equalsIgnoreCase(Ref.prefix + "submitted")) {
     		objMsgCh.sendMessage("Getting players...").queue(message ->{
     			message.editMessage(cloud.showAll()).queue();
     		});
     	}
-    	else if(objMsg.getContentRaw().equalsIgnoreCase(Ref.prefix + "confirmSetVegasFile")) {
-    		if(!verify(true,true,objMsg,objMsgCh,objUser)) {
-    			objMsg.delete().queue();
-    			objMsgCh.sendMessage(objUser.getAsMention() + " `Please use this in a private channel. Message expires in 5 seconds.`").queue(message ->{
-    				double sentTime = System.currentTimeMillis();
-		    		double currTime = 0;
-		    		while(currTime - sentTime < 5000) {currTime = System.currentTimeMillis();}
-		    		message.delete().queue();
-    			});
-    		}else {
-    			if(Ref.adminIds.contains(objUser.getIdLong())) {
-        			if(!vegasWGET.equals("")) {
-        				objMsgCh.sendMessage(objUser.getAsMention() + " `Updating " + Ref.vegasFile + "`").queue(message -> {
-        					executeCommand("rm ../Vegas/" + Ref.vegasFile);
-        					executeCommand("wget " + vegasWGET + " -P ../Vegas/");
-        					message.editMessage("`TIMESTAMP: " + Ref.getTime() + "` Update complete. Logging action...").queue();
-        					jda.getTextChannelById(Ref.logChId).sendMessage(Ref.getTime() + ", " + objUser.getAsMention() + " updated " + Ref.vegasFile).queue();
-        					message.editMessage("Action logged. Message expires in 5 seconds.").queue();
-        					vegasWGET = "";
-        					try {
-    							Thread.sleep(5000);
-    						} catch (InterruptedException e) {}
-        					message.delete().queue();
-        				});
-        			}
-        		}
-    		}
-    	}
-    	else if(objMsg.getContentRaw().startsWith(Ref.prefix + "init 0")) {
-    		long timeInMin = 0;
-    		try {
-    			timeInMin = Long.parseLong(objMsg.getContentRaw().substring(7).trim());
-    		}catch (Exception e) {
-    			timeInMin = 30;
-    		}
-    		String currentDate = Ref.getTime(objMsg.getContentRaw().substring(7).trim());
-    		if(Ref.adminIds.contains(objMsg.getAuthor().getIdLong())){
-    			objMsgCh.sendMessage("HT-Backup is going offline for "+timeInMin+" minutes. It will be back online at " + currentDate).queue();
-    			objMsg.delete().queue();
-	    		jda.shutdown();
-    		}
-    	}else if(objMsg.getContentRaw().startsWith(Ref.prefix +"echo") && Ref.adminIds.contains(objUser.getIdLong())){
-    		String input = objMsg.getContentRaw();
-    		String echo = input.substring(6);
-    		objMsgCh.sendMessage(echo).queue();
-    		objMsg.delete().queue();
-    	}else if(objMsg.getContentRaw().startsWith("!submit")) {
+    	else if(objMsg.getContentRaw().startsWith("!submit")) {
     		if(!acceptingSubmissions) {
     			Member HTBot = getMemberById(objGuild,"" + Ref.HTBotId);
     			if(!HTBot.getOnlineStatus().equals(OnlineStatus.ONLINE)) {
@@ -663,26 +624,6 @@ public class App extends ListenerAdapter
 		    		message.delete().queue();
     			});
     		}
-    	}else if(objMsg.getContentRaw().startsWith(Ref.prefix + "store") && Ref.adminIds.contains(objMsg.getAuthor().getIdLong())){
-    		String id = objMsg.getContentRaw().substring(7);
-    		objMsgCh.sendMessage(cloud.store(objMsg,id)).queue();
-    	}
-    	else if(objMsg.getContentRaw().startsWith(Ref.prefix + "empty") && Ref.adminIds.contains(objMsg.getAuthor().getIdLong())){
-    		objMsgCh.sendMessage(cloud.empty(objMsg)).queue();
-    		jda.getPresence().setGame(Game.of(Game.GameType.DEFAULT, "Recycling paper..."));
-    		
-    		double sentTime = System.currentTimeMillis();
-    		double currTime = 0;
-    		while(currTime - sentTime < 5000) {currTime = System.currentTimeMillis();}
-    		jda.getPresence().setGame(Game.of(Game.GameType.DEFAULT, "Enjoying a snack ..."));
-    	}else if(objMsg.getContentRaw().startsWith(Ref.prefix + "remove") && Ref.adminIds.contains(objMsg.getAuthor().getIdLong())) {
-    		objMsgCh.sendMessage(cloud.remove(objMsg)).queue();
-    		jda.getPresence().setGame(Game.of(Game.GameType.DEFAULT, "Throwing away garbage..."));
-    		
-    	}else if(objMsg.getContentRaw().startsWith(Ref.prefix + "show") && Ref.adminIds.contains(objMsg.getAuthor().getIdLong())) {
-    		objMsgCh.sendMessage(cloud.show(objMsg)).queue();
-    		jda.getPresence().setGame(Game.of(Game.GameType.DEFAULT, "Dusting shelves..."));
-    		
     	}else if(objMsg.getContentRaw().startsWith(Ref.prefix + "retrieve")) {
     		if(Ref.adminIds.contains(objMsg.getAuthor().getIdLong()) || objMsg.isFromType(ChannelType.PRIVATE)){
     			if(objMsg.isFromType(ChannelType.PRIVATE)) {
@@ -715,12 +656,6 @@ public class App extends ListenerAdapter
 		    		
     			});
     		}
-    	}else if(objMsg.getContentRaw().equals(Ref.prefix + "restore") && Ref.adminIds.contains(objUser.getIdLong())) {
-    		
-    		objMsgCh.sendFile(cloud.sendZip()).queue(message ->{
-    			message.editMessage("`Files sent and zip has been cleared in directory.`").queue();
-    		});
-    		cloud.deleteZip();
     	}
     	else if(objMsg.getContentRaw().startsWith(Ref.prefix + "weather")) {	
     		objMsgCh.sendMessage("Getting weather...").queue(message ->{
@@ -784,45 +719,27 @@ public class App extends ListenerAdapter
 	    		jda.getPresence().setGame(Game.of(Game.GameType.WATCHING, "a Dictionary."));
     		});
     		
-    	}else if(objMsg.getContentRaw().startsWith(Ref.prefix + "urban")) {
-    		if(!verify(true,true,objMsg,objMsgCh,objUser)) {
-    			objMsg.delete().queue();
-    			objMsgCh.sendMessage(objUser.getAsMention() + " `Please use this in a private channel. Message expires in 5 seconds.`").queue(message ->{
-    				double sentTime = System.currentTimeMillis();
-		    		double currTime = 0;
-		    		while(currTime - sentTime < 5000) {currTime = System.currentTimeMillis();}
-		    		message.delete().queue();
-    			});
-    		}else {
-    			objMsgCh.sendMessage(urbanDict(objMsg.getContentRaw())).queue();
-    		}
-    		
-    	}else if(objMsg.getContentRaw().startsWith(Ref.prefix + "delete")) {
-    		String input = objMsg.getContentRaw();
-    		int num = 0;
-    		try {
-    			num = Integer.parseInt(input.substring(8).trim());
-    		}catch(Exception e) {
-    			objMsgCh.sendMessage("Must enter valid integer").queue();
-    		}
-    		if(verify(false,true,objMsg,objMsgCh,objUser)) {
-    			objMsg.delete().queue();
-    			List<Message> messages = objMsgCh.getHistory().retrievePast(num).complete();
-    			for(Message m : messages) {
-    				jda.getTextChannelById(Ref.dumpChId).sendMessage(m).queue();
-    				m.delete().queue();
-    			}
-    			
-    		}
-    		
     	}else if(objMsg.getContentRaw().startsWith(Ref.prefix + "myLang")) {
     		String input = objMsg.getContentRaw();
     		String language = input.substring(7).trim();
-    		language = language.substring(0, 1).toUpperCase() + language.substring(1);
-    		
+    		if(language.equalsIgnoreCase("all") || language.equals("")) {
+    			objMsgCh.sendMessage("Choose a language from this list: "
+    					+ "\n`Java`"
+    					+ "\n`Python`"
+    					+ "\n`C#`"
+    					+ "\n`C++`"
+    					+ "\n`Dart`"
+    					+ "\n`Go`"
+    					+ "\n`Haskell`"
+    					+ "\n`Javascript`"
+    					+ "\n`Ruby`"
+    					+ "\n`Rust`").queue();
+    		}
+    		try {
+    			language = language.substring(0, 1).toUpperCase() + language.substring(1);
+    		}catch(Exception e) {}
     		Long roleId = Ref.langs.get(language);
-    		
-    		
+
     		try {
     			Role r = jda.getRoleById(roleId);
     			GuildController gc = new GuildController(objGuild);
@@ -850,6 +767,9 @@ public class App extends ListenerAdapter
     	}else if(objMsg.getContentRaw().startsWith(Ref.prefix + "nextBackup")) {
     		String currentDate = Ref.dateFormat.format(nextBackupDate) + " UTC";
     		objMsgCh.sendMessage("The next backup time will be " + currentDate).queue();
+    	}else if(objMsg.getContentRaw().startsWith(Ref.prefix + "nextScrape")) {
+    		String currentDate = Ref.dateFormat.format(nextScanDate) + " UTC";
+    		objMsgCh.sendMessage("The next time players will be added is " + currentDate).queue();
     	}
     }
     
@@ -864,7 +784,7 @@ public class App extends ListenerAdapter
 			    .directory(new File("."))
 			    .start();
 		} catch (IOException e1) {
-			// TODO Auto-generated catch block
+		
 			e1.printStackTrace();
 		}
 
@@ -882,7 +802,6 @@ public class App extends ListenerAdapter
 			        output += line + "\n";
 			    }
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
         return output;
@@ -897,7 +816,6 @@ public class App extends ListenerAdapter
 			    .directory(new File("../"))
 			    .start();
 		} catch (IOException e1) {
-			// TODO Auto-generated catch block
 			e1.printStackTrace();
 		}
 
@@ -915,7 +833,6 @@ public class App extends ListenerAdapter
 			        output += line + "\n";
 			    }
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
         return output;
@@ -925,9 +842,11 @@ public class App extends ListenerAdapter
     	List<Member> members = guild.getMembers();
 		int memberIndex = -1;
 		for(Member member : members) {
-			if(member.getEffectiveName().equals(name)) {
-				memberIndex = members.indexOf(member);
-			}
+			try {
+				if(member.getEffectiveName().equals(name)){
+					memberIndex = members.indexOf(member);
+				}
+			}catch(Exception e) {}
 		}
 		if(memberIndex == -1) {
 			return null;
@@ -1021,7 +940,10 @@ public class App extends ListenerAdapter
         		Member m = getMemberByName(HT, p.username);
         		Role player = jda.getRoleById(Ref.playerRoleId);
         		try {
-        			g.addRolesToMember(m,player);
+        			if(!HT.getMembersWithRoles(player).contains(m)) {
+        				g.addSingleRoleToMember(m, player).queue();
+            			System.out.println(m.getEffectiveName() + " added.");
+        			}
         		}catch(Exception e) {
         			unaddedPlayers.add(p);
         		}

@@ -1,16 +1,7 @@
 package bot.HT.HT_Backup;
 
-import java.io.InputStream;
-import java.net.URL;
-import java.net.URLConnection;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
 
-import org.apache.commons.io.IOUtils;
+import java.util.ArrayList;
 import com.google.gson.*;
 
 public class Spreadsheet {
@@ -24,10 +15,19 @@ public class Spreadsheet {
 	}
 	
 	public void updateLocalSheet() {
-		App.cloudExec("gsjson "+Ref.spreadsheetId+" >> sign-ups.json -s SpreadSheet_API-96ed44bef6bb.json");
-		App.cloudExec("chmod +r " + Ref.storageName + "/sign-ups.json");
-		String json = App.cloudExec("cat " + Ref.storageName + "/sign-ups.json");
-		objJson = new JsonParser().parse(json).getAsJsonArray();
+		for(int i = 1; i <= 50; i++) {
+			App.executeCommand("rm sign-ups.json");
+			App.cloudExec("gsjson "+Ref.spreadsheetId+" >> HT-Backup/sign-ups.json -s HT-Backup/SpreadSheet_API-96ed44bef6bb.json");
+			App.cloudExec("chmod +r HT-Backup/sign-ups.json");
+			String json = App.cloudExec("cat HT-Backup/sign-ups.json");
+			try {
+				objJson = new JsonParser().parse(json).getAsJsonArray();
+				break;
+			}catch(Exception e) {
+				System.err.println("Spreadsheet failed to download. Trying again... (Attempt " + i + ")");
+			}
+		}
+		
 	}
 
 	public ArrayList<Player> scanSheet() {
@@ -42,7 +42,12 @@ public class Spreadsheet {
 			String language = e.get("language").getAsString();
 			String username = e.get("username").getAsString();
 			String area = e.get("area").getAsString();
-			int rank = e.get("rank").getAsInt();
+			int rank = -1;
+			try {
+				rank = e.get("rank").getAsInt();
+			}catch(Exception E) {
+				continue;
+			}
 			String education = e.get("education").getAsString();
 			String yearsOfCoding = e.get("yearsofcoding").getAsString();
 			String attendance = e.get("attendance").getAsString();
@@ -56,7 +61,14 @@ public class Spreadsheet {
 					maliciousAgree, originalAgree, joinAgree);
 			
 			sps.add(p);
-			if(!prevPlayers.contains(p)) {
+			boolean contains = false;
+			for(Player old : prevPlayers) {
+				if(old.username.equals(p.username)) {
+					contains = true;
+					break;
+				}
+			}
+			if(!contains) {
 				newPlayers.add(p);
 			}
 		}

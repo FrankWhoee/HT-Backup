@@ -17,7 +17,7 @@ public class Ref {
 	public static final String prefix = ">";
 	
 	//VERSION NUMBER
-	public static final String version = "HT-Backup 4.0.2";
+	public static final String version = "HT-Backup 4.0.4";
 	
 	//USER IDs
 	public static final ArrayList<Long> adminIds = new ArrayList(Arrays.asList(301294798155939840L,417573975347167233L,194857448673247235L,384452291295576065L,406568474979205120L,447530706445533184L));
@@ -34,8 +34,7 @@ public class Ref {
 	public static final String logoURL = "https://cdn.discordapp.com/attachments/417732882828886019/446493666333294602/HaliteTournamentsPlanetsLogo.png";
 	public static final String HTBackupLogoURL = "https://github.com/FrankWhoee/HT-Backup/raw/master/backupBotlogo.png";
 	public static final String seasonNum = "III";
-	public static final long signupScanInterval = (long)4.32e+7;
-	
+	public static final long signupScanInterval = (long)1.8e+6;
 	
 	//HT COLOURS
 	public static final Color HTRed = new Color((float)1.0,(float)0.2666,(float)0.2666);

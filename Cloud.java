@@ -162,7 +162,9 @@ public class Cloud {
 			String[] snowflakes = output.split("\n");
 			output = "";
 			for(int i = 0; i < snowflakes.length; i++) {
-				output += snowflakes[i].trim() + "/" + App.jda.getUserById(Long.parseLong(snowflakes[i].trim())).getName() + "\n";
+				try {
+					output += snowflakes[i].trim() + "/" + App.jda.getUserById(Long.parseLong(snowflakes[i].trim())).getName() + "\n";
+				}catch(Exception e) {}
 			}
 			
 			if(!output.equals("")){
@@ -198,7 +200,9 @@ public class Cloud {
 		output = "";
 		for(int i = 0; i < snowflakes.length; i++) {
 			if(!App.cloudExec("ls " + snowflakes[i].trim()).equals("")) {
-				output += App.jda.getUserById(Long.parseLong(snowflakes[i].trim())).getName() + "\n";
+				try {
+					output += App.jda.getUserById(Long.parseLong(snowflakes[i].trim())).getName() + "\n";
+				}catch(Exception e) {}
 			}
 		}
 		
