@@ -42,11 +42,11 @@ public class Player {
 	public boolean originalAgree;
 	
 	//Agreement to join the Discord server.
-	public boolean joinAgree;
+	public boolean surveyAnswered;
 
 	public Player(String timestamp, String email, boolean participation, String language, String username, String area,
 			int rank, String education, String yearsOfCoding, String attendance, boolean submitAgree,
-			boolean maliciousAgree, boolean originalAgree, boolean joinAgree) {
+			boolean maliciousAgree, boolean originalAgree, boolean surveyAnswered) {
 		this.timestamp = timestamp;
 		this.email = email;
 		this.participation = participation;
@@ -60,7 +60,7 @@ public class Player {
 		this.submitAgree = submitAgree;
 		this.maliciousAgree = maliciousAgree;
 		this.originalAgree = originalAgree;
-		this.joinAgree = joinAgree;
+		this.surveyAnswered = surveyAnswered;
 	}
 	
 	

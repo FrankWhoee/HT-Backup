@@ -216,13 +216,17 @@ public class Cloud {
 	public String verifyRetrieve(Message objMsg) {
 		String input = objMsg.getContentRaw();
 		String storeNum = input.substring(10,input.length());
+		if(objMsg.getMentionedMembers().size() > 0) {
+			storeNum = objMsg.getMentionedMembers().get(0).getUser().getId();
+		}
+		
 
 		if(!App.cloudExec("ls").contains(Ref.storageName)) {
 			App.cloudExec("mkdir " + Ref.storageName);
 			return ("Storage space empty.");
 		}
 		if(!App.cloudExec("ls " + Ref.storageName).contains(storeNum)) {
-			return ("Storage slot"+storeNum+"does not exist.");
+			return ("Storage slot "+storeNum+" does not exist.");
 		}
 		return "Verify complete. Retrieiving file...";
 	}
@@ -235,7 +239,7 @@ public class Cloud {
 			return ("Storage space empty.");
 		}
 		if(!App.cloudExec("ls " + Ref.storageName).contains(storeNum)) {
-			return ("Storage slot"+storeNum+"does not exist.");
+			return ("Storage slot "+storeNum+" does not exist.");
 		}
 		
 		return "Verify complete. Retrieiving file...";
@@ -267,6 +271,10 @@ public class Cloud {
 	public File retrieve(Message objMsg) {
 		String input = objMsg.getContentRaw();
 		String storeNum = input.substring(10,input.length());
+		if(objMsg.getMentionedMembers().size() > 0) {
+			storeNum = objMsg.getMentionedMembers().get(0).getUser().getId();
+		}
+		
 		
 		String filename = App.cloudExec("ls "+Ref.storageName+"/"+storeNum);
 		filename = filename.trim();

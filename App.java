@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.function.Consumer;
 
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 import net.dv8tion.jda.core.AccountType;
 import net.dv8tion.jda.core.JDA;
@@ -52,12 +53,6 @@ import java.net.URLConnection;
 
 import java.lang.ProcessBuilder;
 
-//TODO: 
-//1. Scrape spreadsheet for new players. (FINISHED)
-//2. Language roles that people can sign up for. (FINISHED)
-//3. Censor admin cursing. (CANCELLED)
-
-
 public class App extends ListenerAdapter
 {
 	
@@ -73,10 +68,13 @@ public class App extends ListenerAdapter
 	static Long lST = 0L;
 	static Long DSST;
 	static Date nextScanDate = new Date(); 
+	static JsonObject vegasJson;
+	
     public static void main( String[] args ) throws Exception
     {
     	
-    	
+		String json = App.cloudExec("cat Vegas/bets.json");
+    	vegasJson = new JsonParser().parse(json).getAsJsonObject();
     	jda = new JDABuilder(AccountType.BOT).setToken(Key.TOKEN).buildBlocking();
         //jda = new JDABuilder(AccountType.BOT).setToken(Key.DEVTOKEN).buildBlocking();
     	MessageChannel backupCh = jda.getTextChannelById(Ref.backupChId);
@@ -85,15 +83,22 @@ public class App extends ListenerAdapter
         jda.getPresence().setGame(Game.of(Game.GameType.DEFAULT, "Dusting shelves..."));
         jda.addEventListener(new App());
         
-        ArrayList<Player> unaddedPlayers = addPlayers();
+        ArrayList<Player> unaddedPlayers = null;
+//        try {
+//        	unaddedPlayers = addPlayers();
+//        }catch (NullPointerException e) {
+//        	e.printStackTrace();
+//        	System.err.println("No new players found.");
+//        }        
         
-        if(unaddedPlayers.size() > 0) {
-        	String up = "";
-        	for(Player p : unaddedPlayers) {
-        		up += p.username + "\n";
-        	}
-        	jda.getTextChannelById(Ref.privateChId).sendMessage("These players were unable to be added as an @Player. Please resolve: \n" + up).queue();
-      	}
+//        if(unaddedPlayers.size() > 0) {
+//        	//up stands for unadded players
+//        	String up = "";
+//        	for(Player p : unaddedPlayers) {
+//        		up += p.username + "\n";
+//        	}
+//        	jda.getTextChannelById(Ref.privateChId).sendMessage("These players were unable to be added as an @Player. Please resolve: \n" + up).queue();
+//      	}
         
         String path = System.getProperty("user.dir") +"/../" + Ref.storageName + "/" + Ref.backupLogFileName;
         File file = new File(path);
@@ -140,9 +145,13 @@ public class App extends ListenerAdapter
         	}
         	
         	if(DSST > Ref.signupScanInterval){
-        		jda.getTextChannelById(Ref.privateChId).sendMessage("Automatic scrape. [" + Ref.getTime() + "]").queue();
+        		jda.getTextChannelById(Ref.logChId).sendMessage("`Automatic scrape [" + Ref.getTime() + "]`").queue();
         		/*Wait for sheet scan time.*/ 
-        		unaddedPlayers.clear();  
+        		try {
+        			unaddedPlayers.clear();
+        		}catch(Exception e) {
+        			
+        		}
     	        try{
     	        	unaddedPlayers = addPlayers();
     	        }catch(Exception e) {
@@ -171,6 +180,7 @@ public class App extends ListenerAdapter
     	Message objMsg = evt.getMessage();
     	Guild objGuild = evt.getGuild();
     	
+
     	if(mode) {
     		if(verify(false, true, objMsg,objMsgCh,objUser) && objMsg.getContentRaw().equalsIgnoreCase(Ref.prefix + "toggleMode")) {
     			mode = false;
@@ -234,7 +244,7 @@ public class App extends ListenerAdapter
         			System.out.println(Ref.battlesChId);
         			output += "battleChId = " + Ref.battlesChId + ", name of channel is " + jda.getTextChannelById(Ref.battlesChId).getName() + "\n";
         			output += "submitChId = " + Ref.submitChId + ", name of channel is " + jda.getTextChannelById(Ref.submitChId).getName() + "\n";
-        			output += "privateChId = " + Ref.submitChId + ", name of channel is " + jda.getTextChannelById(Ref.privateChId).getName() + "\n";
+        			output += "privateChId = " + Ref.privateChId + ", name of channel is " + jda.getTextChannelById(Ref.privateChId).getName() + "\n";
         			
         			output += "privateChannels= {";
         			for(Long l : Ref.privateChannels) {
@@ -260,7 +270,7 @@ public class App extends ListenerAdapter
     	    		Long idLong = Long.parseLong(id);
     	    		Ref.privateChId = idLong;
     	    		
-    	    		objMsgCh.sendMessage("Set privateChId to " + id).queue();
+    	    		objMsgCh.sendMessage("Set privateChId to " + Ref.privateChId).queue();
         		
         	}else if(objMsg.getContentRaw().startsWith(Ref.prefix + "backupInterval ")) {
     	    		String input = objMsg.getContentRaw();
@@ -343,9 +353,30 @@ public class App extends ListenerAdapter
         	        	for(Player p : unaddedPlayers) {
         	        		up += p.username + "\n";
         	        	}
-        	        	jda.getTextChannelById(Ref.generalChId).sendMessage("These players were unable to be added as an @Player. Please resolve: \n" + up).queue();
+        	        	System.out.println(unaddedPlayers.size());
+        	        	jda.getTextChannelById(Ref.privateChId).sendMessage("These players were unable to be added as an @Player. Please resolve: \n" + up).queue();
         	        }
         		 objMsgCh.sendMessage("Spreadsheet scraped.").queue();
+        	}else if(objMsg.getContentRaw().startsWith(Ref.prefix + "stripRole")) {
+        		String input = objMsg.getContentRaw();
+        		Guild HT = jda.getGuildById(Ref.HTGuildId);
+        		List<Member> members = HT.getMembers();
+        		Role r;
+        		try {
+        			r = objMsg.getMentionedRoles().get(0);
+        		}catch(Exception e) {
+        			objMsgCh.sendMessage(objUser.getAsMention() + " Please enter an @role to be stripped.").queue();
+        			return;
+        		}
+        		GuildController gc = new GuildController(HT);        	
+    			for(Member m : members){
+    				try{
+    					gc.removeSingleRoleFromMember(m, r).queue();
+    				}catch(Exception e) {
+    					System.out.println("User does not belong to the role " + r.getName());
+    				}
+    			}
+        		objMsgCh.sendMessage(objMsg.getMentionedRoles().get(0).getAsMention() + " stripped of users. It may take a few minutes for this command to take effect.").queue();
         	}
     		
     	}
@@ -407,6 +438,15 @@ public class App extends ListenerAdapter
         		String link = input.substring(6);
         		Ref.inviteLink = link;
         		objMsgCh.sendMessage("inviteLink set to " + Ref.inviteLink).queue();
+        	}else if(objMsg.getContentRaw().startsWith(Ref.prefix +"warn")) {
+        		String input = objMsg.getContentRaw();
+        		if(objMsg.getMentionedMembers().size() > 1) {
+        			objMsgCh.sendMessage("Only tag one person to warn.").queue();
+        			return;
+        		}
+        		Member subject = objMsg.getMentionedMembers().get(0);
+        		
+        		
         	}
     	}
     	//End verify public and admin commands
@@ -486,17 +526,18 @@ public class App extends ListenerAdapter
     	}else if(objMsg.getContentRaw().startsWith(Ref.prefix + "schedule")){
     		EmbedBuilder eb = new EmbedBuilder(); 
             eb.setColor(Ref.HTRed);
-    		eb.setTitle("Here is the schedule for Season III. For a graphic version, go to #season-iii");
-    		eb.addField("Valid as of May 16, 2018.", "Today's Date: " + Ref.getTime(), false);
+    		eb.setTitle("Here is a temporary schedule, while we figure things out for Season IV:");
     		
-    		eb.addField("May 16","Submissions open for casual battles.",false);
-    		eb.addField("May 27","Submissions are closed.",false);
-    		eb.addField("June 16","New Season III Engine is released and submissions are reopened.",false);
-    		eb.addField("June 20","Sign-ups close.",false);
-    		eb.addField("June 30","First day of Season III Tournament",false);
-    		eb.addField("July 1, 4:00 PM UTC","Second day of Season III Tournament",false);
-    		eb.addField("July 2, 4:00 PM UTC","Third day of Season III Tournament",false);
-    		eb.addField("July 3, 4:00 PM UTC","Results and awards released for Season III.",false);
+    		eb.setDescription("You can always check the UTC time by typing >time or !utc");
+    		
+    		eb.addField("Valid as of July 3, 2018.", "Today's Date: " + Ref.getTime(), false);
+    		eb.addBlankField(true);
+    		eb.addField("July 3 22:00 UTC","Submissions open for everyone, for casual battles and testing.",false);
+    		eb.addField("July 4, 01:00 UTC","Results and awards released for Season III.",false);
+    		eb.addField("July 10 12:00 UTC","Submissions are closed.",false);
+    		eb.addField("July 18 01:00 UTC","Awards are taken down. Download your awards before they're taken down!",false);
+    		eb.addField("TBD","Season IV starts. Stay tuned for a date!",false);
+    		
     		eb.setFooter("Valid as of " + Ref.getTime(), Ref.HTBackupLogoURL);
     		objMsgCh.sendMessage(eb.build()).queue();
     	}else if(objMsg.getContentRaw().startsWith(Ref.prefix + "help")){
@@ -917,7 +958,7 @@ public class App extends ListenerAdapter
     
     public boolean verify(boolean priv, boolean admin, Message objMsg, MessageChannel objMsgCh, User objUser) {
     	if(priv) {
-    		if(!(Ref.privateChannels.contains(objMsgCh.getIdLong()) || Ref.privateGuilds.contains(objMsg.getGuild().getIdLong()) || objMsgCh.getName().equals("halite"))) {
+    		if(!(Ref.privateChannels.contains(objMsgCh.getIdLong())|| Ref.privateChId == objMsgCh.getIdLong() || Ref.privateGuilds.contains(objMsg.getGuild().getIdLong()) || objMsgCh.getName().equals("halite"))) {
     			return false;
     		}
     	}
@@ -934,17 +975,47 @@ public class App extends ListenerAdapter
     	ArrayList<Player> newPlayers = spreadsheet.scanSheet();
         Guild HT = jda.getGuildById(Ref.HTGuildId);
         ArrayList<Player> unaddedPlayers = new ArrayList<>();
+        String json = App.cloudExec("cat Vegas/bets.json");
+    	vegasJson = new JsonParser().parse(json).getAsJsonObject();
         if(newPlayers.size() > 0) {
         	GuildController g = new GuildController(HT);
         	for(Player p : newPlayers) {
         		Member m = getMemberByName(HT, p.username);
+        		if(m == null) {
+        			unaddedPlayers.add(p);
+        			continue;
+        		}
         		Role player = jda.getRoleById(Ref.playerRoleId);
         		try {
+        			//Check if user is already player
         			if(!HT.getMembersWithRoles(player).contains(m)) {
+        				//Add user as player
         				g.addSingleRoleToMember(m, player).queue();
-            			System.out.println(m.getEffectiveName() + " added.");
+        				//Check player's language
+        				String language = p.language;
+        	    		try {
+        	    			language = language.substring(0, 1).toUpperCase() + language.substring(1);
+        	    		}catch(Exception e) {}
+        	    		Long roleId = Ref.langs.get(language);
+        	    		Role r = jda.getRoleById(roleId);
+        	    		//Add player to language role.
+    	            	g.addSingleRoleToMember(m, r).queue();
+    	            	
+    	            	//Check if player completed survey
+    	            	if(p.surveyAnswered) {
+    	            		MessageChannel vegasBackup = jda.getTextChannelById(Ref.vegasbackupChId);
+    	            		System.out.println("Transferring $200 ;)");
+    	            		//Check if player is already registered
+    	            		if(vegasJson.get("users").getAsJsonObject().has(m.getUser().getId())) {
+    	            			vegasBackup.sendMessage("!bank " + m.getUser().getAsMention() + " 200").queue();
+    	            		}else {
+    	            			vegasBackup.sendMessage("!register " + m.getUser().getAsMention() + " 1200").queue();
+    	            		}
+    	            	}
         			}
+        			
         		}catch(Exception e) {
+        			e.printStackTrace();
         			unaddedPlayers.add(p);
         		}
         	}

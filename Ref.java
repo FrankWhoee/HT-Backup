@@ -17,7 +17,7 @@ public class Ref {
 	public static final String prefix = ">";
 	
 	//VERSION NUMBER
-	public static final String version = "HT-Backup 4.0.4";
+	public static final String version = "HT-Backup 4.1.2";
 	
 	//USER IDs
 	public static final ArrayList<Long> adminIds = new ArrayList(Arrays.asList(301294798155939840L,417573975347167233L,194857448673247235L,384452291295576065L,406568474979205120L,447530706445533184L));
@@ -27,14 +27,17 @@ public class Ref {
 	//MISC.
 	public static final String[] alphabet = {"a","b","c","d","e","f","g","h","i","j","k","l","m","n","o","p","q","r","s","t","u","v","w","x","y","z"};
 	
-	public static final String spreadsheetId = "17bMWQiC10jE-xhRv9Lc9WTBSkbKdmgBLi_Xe-7MHixI";
+	public static final String spreadsheetId = "1lvrPC-oHh3Fz0Y42AtJRjEyPzB4Om77F4kg0SgrClqg";
+	public static final long signupScanInterval = (long)1.8e+6;
+	public static final boolean scanSheet = false;
+	
 	public static final long VANCOUVERTOUTC = (long)2.52e+7; //UNIT: MILLESECONDS
 	public static String inviteLink = "https://discord.gg/H9eYc4H";
 	public static final DateFormat dateFormat = new SimpleDateFormat("yyy/MM/dd HH:mm:ss");
 	public static final String logoURL = "https://cdn.discordapp.com/attachments/417732882828886019/446493666333294602/HaliteTournamentsPlanetsLogo.png";
 	public static final String HTBackupLogoURL = "https://github.com/FrankWhoee/HT-Backup/raw/master/backupBotlogo.png";
 	public static final String seasonNum = "III";
-	public static final long signupScanInterval = (long)1.8e+6;
+	
 	
 	//HT COLOURS
 	public static final Color HTRed = new Color((float)1.0,(float)0.2666,(float)0.2666);
@@ -46,11 +49,13 @@ public class Ref {
 	public static final long logChId = 447828385834729502L;
 	public static final long backupChId = 449407125467168768L;
 	public static final long updateChId = 411265410651127809L;
+	public static final long halitebackupChId = 448232311331487747L;
+	public static final long vegasbackupChId = 470726246653755417L;
 	public static long submitChId = 446330102632939520L;
 	public static long battlesChId = 446330102632939520L;
 	public static long privateChId = 419831655503495178L;
 	public static long dumpChId = 450829169564188742L;
-	public static ArrayList<Long> privateChannels = new ArrayList(Arrays.asList(446494159553953802L, 419831655503495178L));
+	public static ArrayList<Long> privateChannels = new ArrayList(Arrays.asList(446494159553953802L, 419831655503495178L,448232311331487747L));
 	
 	//GUILD IDs
 	public static ArrayList<Long> privateGuilds = new ArrayList(Arrays.asList(436768406952476683L, 417732882828886017L, 432695533010681856L));
@@ -62,6 +67,7 @@ public class Ref {
 	static {
 		langs.put("Java",452604935994081311L);
 		langs.put("Python",452604977823875092L);
+		langs.put("Python3",452604977823875092L);
 		langs.put("C#",456309600669663233L);
 		langs.put("C++",456309676376719360L);
 		langs.put("Dart",456309702704234500L);
@@ -70,6 +76,8 @@ public class Ref {
 		langs.put("Javascript",456309784405082123L);
 		langs.put("Ruby",456309811676577792L);
 		langs.put("Rust",456309831624687628L);
+		langs.put("Machine Learning",469200700505849856L);
+		langs.put("ML",469200700505849856L);
 	}
 	
 	
